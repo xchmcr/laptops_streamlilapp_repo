@@ -1,43 +1,26 @@
-import streamlit as st
-from databaseconn import create_connection  # Previously 'database'
+from databaseconn import connect_to_mongo
 
-# Sign up newppl
+# Function to sign up a new user
 def sign_up_user(first_name, last_name, email):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM customers_data WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    
-    if user:
-        st.error("Email already exists, please log in.")
-    else:
-        cursor.execute("""
-            INSERT INTO customers_data (first_name, last_name, email)
-            VALUES (%s, %s, %s)
-        """, (first_name, last_name, email))
-        conn.commit()
-        st.success("Account created successfully! Please log in.")
-    cursor.close()
-    conn.close()
+    db = connect_to_mongo()
+    users_collection = db["users_data"]  # Name of the MongoDB collection for users
 
-# Log in users
+    # Insert new user into MongoDB
+    new_user = {
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": email
+    }
+    users_collection.insert_one(new_user)
+    return "User registered successfully!"
+
+# Function to log in an existing user
 def login_user(email):
-    conn = create_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM customers_data WHERE email = %s", (email,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    
+    db = connect_to_mongo()
+    users_collection = db["users_data"]
+
+    # Find the user by email in MongoDB
+    user = users_collection.find_one({"email": email})
     if user:
-        st.session_state['user'] = {
-            'customer_id': user[0],
-            'first_name': user[1],
-            'last_name': user[2],
-            'email': user[3]
-        }
-        st.success(f"Logged in as {user[1]} {user[2]}")
-        return True
-    else:
-        st.error("Email not found. Please sign up.")
-        return False
+        return user
+    return None
